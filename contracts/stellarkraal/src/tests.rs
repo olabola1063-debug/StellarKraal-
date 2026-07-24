@@ -200,6 +200,35 @@ fn test_initialize_ltv_above_max_fails() {
 }
 
 #[test]
+#[should_panic(expected = "#3")]
+fn test_initialize_zero_admin_fails() {
+    use soroban_sdk::String;
+    let (env, cid, _admin, oracle, token, treasury) = setup();
+    let client = StellarKraalClient::new(&env, &cid);
+    let zero = Address::from_string(&String::from_str(
+        &env,
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+    ));
+    client.initialize(&zero, &oracle, &token, &treasury, &6000u32, &8000u32, &1u32);
+}
+
+#[test]
+#[should_panic(expected = "#8")]
+fn test_initialize_zero_ltv_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    let client = StellarKraalClient::new(&env, &cid);
+    client.initialize(&admin, &oracle, &token, &treasury, &0u32, &8000u32, &1u32);
+}
+
+#[test]
+#[should_panic(expected = "#8")]
+fn test_initialize_ltv_above_max_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    let client = StellarKraalClient::new(&env, &cid);
+    client.initialize(&admin, &oracle, &token, &treasury, &9001u32, &9500u32, &1u32);
+}
+
+#[test]
 #[should_panic(expected = "#8")]
 fn test_initialize_liq_below_ltv_fails() {
     let (env, cid, admin, oracle, token, treasury) = setup();
@@ -299,6 +328,7 @@ fn test_loan_ttl_set_on_create() {
     let borrower = Address::generate(&env);
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     env.as_contract(&cid, || {
         let ttl = env.storage().persistent().get_ttl(&DataKey::Loan(loan_id));
         assert_eq!(ttl, PERSISTENT_TTL_LEDGERS);
@@ -315,6 +345,7 @@ fn test_request_loan_within_ltv() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     assert_eq!(loan_id, 1);
 }
 
@@ -328,6 +359,7 @@ fn test_request_loan_exceeds_ltv() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     client.request_loan(&borrower, &vec![&env, col_id], &700_000i128, &None);
+    client.request_loan(&borrower, &vec![&env, col_id], &700_000i128);
 }
 
 #[test]
@@ -341,6 +373,7 @@ fn test_request_loan_wrong_owner() {
     let col_id =
         client.register_livestock(&owner, &symbol_short!("goat"), &3u32, &500_000i128);
     client.request_loan(&attacker, &vec![&env, col_id], &100_000i128, &None);
+    client.request_loan(&attacker, &vec![&env, col_id], &100_000i128);
 }
 
 #[test]
@@ -354,6 +387,7 @@ fn test_request_loan_multi_collateral() {
     let col2 =
         client.register_livestock(&borrower, &symbol_short!("goat"), &5u32, &400_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col1, col2], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col1, col2], &600_000i128);
     let loan = client.get_loan(&loan_id);
     assert_eq!(loan.total_collateral_value, 1_000_000);
     assert_eq!(loan.collateral_ids.len(), 2);
@@ -373,6 +407,7 @@ fn test_request_loan_three_collaterals() {
         client.register_livestock(&borrower, &symbol_short!("sheep"), &5u32, &100_000i128);
     let loan_id =
         client.request_loan(&borrower, &vec![&env, col1, col2, col3], &360_000i128, &None);
+        client.request_loan(&borrower, &vec![&env, col1, col2, col3], &360_000i128);
     let loan = client.get_loan(&loan_id);
     assert_eq!(loan.total_collateral_value, 600_000);
 }
@@ -389,6 +424,7 @@ fn test_multi_collateral_exceeds_combined_ltv() {
     let col2 =
         client.register_livestock(&borrower, &symbol_short!("goat"), &2u32, &500_000i128);
     client.request_loan(&borrower, &vec![&env, col1, col2], &700_000i128, &None);
+    client.request_loan(&borrower, &vec![&env, col1, col2], &700_000i128);
 }
 
 #[test]
@@ -399,6 +435,7 @@ fn test_request_loan_empty_collateral_ids_fails() {
     let client = StellarKraalClient::new(&env, &cid);
     let borrower = Address::generate(&env);
     client.request_loan(&borrower, &vec![&env], &100_000i128, &None);
+    client.request_loan(&borrower, &vec![&env], &100_000i128);
 }
 
 // ── repay_loan ────────────────────────────────────────────────────────
@@ -411,6 +448,7 @@ fn test_partial_repay() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.repay_loan(&borrower, &loan_id, &200_000i128);
     let loan = client.get_loan(&loan_id);
     assert_eq!(loan.outstanding, 400_000);
@@ -425,6 +463,7 @@ fn test_full_repay_marks_repaid() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.repay_loan(&borrower, &loan_id, &600_000i128);
     let loan = client.get_loan(&loan_id);
     assert_eq!(loan.status, LoanStatus::Repaid);
@@ -440,6 +479,7 @@ fn test_repay_closed_loan_fails() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.repay_loan(&borrower, &loan_id, &600_000i128);
     client.repay_loan(&borrower, &loan_id, &1i128);
 }
@@ -454,6 +494,7 @@ fn test_health_factor_healthy() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     let hf = client.health_factor(&loan_id);
     assert!(hf >= 10_000, "health factor should be >= 1.0");
 }
@@ -468,6 +509,7 @@ fn bench_health_factor_instruction_count() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
 
     env.budget().reset_default();
     let hf = client.health_factor(&loan_id);
@@ -503,6 +545,7 @@ fn bench_request_loan_instruction_count() {
 
         env.budget().reset_default();
         client.request_loan(&borrower, &ids, &500_000i128, &None);
+        client.request_loan(&borrower, &ids, &500_000i128);
         let cost = env.budget().cpu_instruction_cost();
         assert!(
             cost < SOROBAN_CPU_LIMIT,
@@ -532,6 +575,7 @@ fn bench_request_loan_instruction_count() {
 
         env.budget().reset_default();
         client.request_loan(&borrower, &ids, &600_000i128, &None);
+        client.request_loan(&borrower, &ids, &600_000i128);
         let cost = env.budget().cpu_instruction_cost();
         assert!(
             cost < SOROBAN_CPU_LIMIT,
@@ -561,6 +605,7 @@ fn bench_request_loan_instruction_count() {
 
         env.budget().reset_default();
         client.request_loan(&borrower, &ids, &600_000i128, &None);
+        client.request_loan(&borrower, &ids, &600_000i128);
         let cost = env.budget().cpu_instruction_cost();
         assert!(
             cost < SOROBAN_CPU_LIMIT,
@@ -589,6 +634,7 @@ fn bench_repay_loan_instruction_count() {
             &1_000_000i128,
         );
         let loan_id = client.request_loan(&borrower, &vec![&env, col], &600_000i128, &None);
+        let loan_id = client.request_loan(&borrower, &vec![&env, col], &600_000i128);
 
         env.budget().reset_default();
         client.repay_loan(&borrower, &loan_id, &200_000i128);
@@ -614,6 +660,7 @@ fn bench_repay_loan_instruction_count() {
             &1_000_000i128,
         );
         let loan_id = client.request_loan(&borrower, &vec![&env, col], &600_000i128, &None);
+        let loan_id = client.request_loan(&borrower, &vec![&env, col], &600_000i128);
 
         env.budget().reset_default();
         client.repay_loan(&borrower, &loan_id, &600_000i128);
@@ -647,6 +694,7 @@ fn bench_liquidate_instruction_count() {
         &1_000_000i128,
     );
     let loan_id = client.request_loan(&borrower, &vec![&env, col], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col], &600_000i128);
     client.set_liquidation_threshold(&admin, &10u32);
 
     env.budget().reset_default();
@@ -672,6 +720,7 @@ fn test_liquidate_healthy_loan_fails() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.liquidate(&liquidator, &loan_id, &300_000i128);
 }
 
@@ -691,6 +740,7 @@ fn test_liquidate_emits_loan_liquidated_event() {
         &1_000_000i128,
     );
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
 
     // Drive the loan unhealthy: outstanding > 800_000 forces hf < 10_000 with 80% liq_thr.
     env.as_contract(&cid, || {
@@ -736,6 +786,7 @@ fn test_get_loan_ok() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("sheep"), &10u32, &2_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &500_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &500_000i128);
     let loan = client.get_loan(&loan_id);
     assert_eq!(loan.principal, 500_000);
     assert_eq!(loan.borrower, borrower);
@@ -765,6 +816,7 @@ fn test_get_loan_collaterals_ok() {
     let col2 =
         client.register_livestock(&borrower, &symbol_short!("goat"), &3u32, &400_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col1, col2], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col1, col2], &600_000i128);
     let collaterals = client.get_loan_collaterals(&loan_id);
     assert_eq!(collaterals.len(), 2);
     assert_eq!(collaterals.get(0).unwrap().animal_type, symbol_short!("cattle"));
@@ -834,6 +886,7 @@ fn test_get_loans_partial_match() {
         &1_000_000i128,
     );
     let real_id = client.request_loan(&borrower, &vec![&env, col], &600_000i128, &None);
+    let real_id = client.request_loan(&borrower, &vec![&env, col], &600_000i128);
 
     let ids = vec![&env, 9999u64, real_id, 8888u64];
     let results = client.get_loans(&ids);
@@ -862,6 +915,8 @@ fn test_get_loans_full_match() {
     );
     let id1 = client.request_loan(&borrower, &vec![&env, col1], &360_000i128, &None);
     let id2 = client.request_loan(&borrower, &vec![&env, col2], &360_000i128, &None);
+    let id1 = client.request_loan(&borrower, &vec![&env, col1], &360_000i128);
+    let id2 = client.request_loan(&borrower, &vec![&env, col2], &360_000i128);
 
     let results = client.get_loans(&vec![&env, id1, id2]);
     assert_eq!(results.len(), 2);
@@ -916,6 +971,7 @@ fn test_request_zero_amount_fails() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     client.request_loan(&borrower, &vec![&env, col_id], &0i128, &None);
+    client.request_loan(&borrower, &vec![&env, col_id], &0i128);
 }
 
 #[test]
@@ -928,6 +984,7 @@ fn test_repay_zero_amount_fails() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.repay_loan(&borrower, &loan_id, &0i128);
 }
 
@@ -954,6 +1011,7 @@ fn test_repay_more_than_outstanding_caps_at_outstanding() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.repay_loan(&borrower, &loan_id, &999_999_999i128);
     let loan = client.get_loan(&loan_id);
     assert_eq!(loan.status, LoanStatus::Repaid);
@@ -1021,6 +1079,7 @@ fn test_request_loan_blocked_when_paused() {
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     client.pause(&admin);
     client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
 }
 
 #[test]
@@ -1034,6 +1093,7 @@ fn test_liquidate_blocked_when_paused() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.pause(&admin);
     client.liquidate(&liquidator, &loan_id, &300_000i128);
 }
@@ -1047,6 +1107,7 @@ fn test_repay_allowed_when_paused() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.pause(&admin);
     client.repay_loan(&borrower, &loan_id, &200_000i128);
     let loan = client.get_loan(&loan_id);
@@ -1122,6 +1183,7 @@ fn test_all_blocked_functions_succeed_after_unpause() {
     let col_ids = vec![&env, col_id];
     assert_eq!(
         client.try_request_loan(&owner, &col_ids, &600_000i128, &None),
+        client.try_request_loan(&owner, &col_ids, &600_000i128),
         Err(Ok(Error::ContractPaused)),
         "request_loan must be blocked (#13)"
     );
@@ -1147,6 +1209,7 @@ fn test_all_blocked_functions_succeed_after_unpause() {
 
     let col_ids2 = vec![&env, col_id];
     let loan_id = client.request_loan(&owner, &col_ids2, &600_000i128, &None);
+    let loan_id = client.request_loan(&owner, &col_ids2, &600_000i128);
     let loan = client.get_loan(&loan_id);
     assert_eq!(loan.status, LoanStatus::Active);
     assert_eq!(loan.principal, 600_000);
@@ -1277,6 +1340,7 @@ fn test_get_state_matches_expected_values() {
     client.add_oracle(&admin, &oracle2);
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.pause(&admin);
 
     let state = client.get_state(&admin);
@@ -1447,6 +1511,7 @@ fn test_loan_requested_event() {
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let events_before = env.events().all().len();
     let _loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let _loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     assert!(env.events().all().len() > events_before);
 }
 
@@ -1459,6 +1524,7 @@ fn test_loan_requested_event_emitted() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let _loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let _loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
 
     let events = env.events().all();
     let topic = vec![
@@ -1479,6 +1545,7 @@ fn test_loan_repaid_event() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     let events_before = env.events().all().len();
     client.repay_loan(&borrower, &loan_id, &200_000i128);
     assert!(env.events().all().len() > events_before);
@@ -1493,6 +1560,7 @@ fn test_loan_repaid_event_emitted_partial() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     client.repay_loan(&borrower, &loan_id, &200_000i128);
 
     let events = env.events().all();
@@ -1514,6 +1582,7 @@ fn test_loan_repaid_event_data() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
 
     client.repay_loan(&borrower, &loan_id, &200_000i128);
     let mut events = env.events().all();
@@ -1600,6 +1669,7 @@ fn test_exceeds_close_factor_fails() {
     let col_id =
         client.register_livestock(&borrower, &symbol_short!("cattle"), &1u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000i128);
     env.as_contract(&cid, || {
         let mut loan: LoanRecord = env
             .storage()
@@ -1720,6 +1790,7 @@ fn test_set_ltv_ok() {
     let borrower = Address::generate(&env);
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2u32, &1_000_000i128);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &500_000i128, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &500_000i128);
     assert_eq!(loan_id, 1);
 }
 
@@ -1791,6 +1862,7 @@ proptest! {
         let val = amount * 2;
         let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &val);
         let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &amount, &None);
+        let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &amount);
         client.repay_loan(&borrower, &loan_id, &repay);
         let loan = client.get_loan(&loan_id);
         assert!(loan.outstanding >= 0);
@@ -1806,6 +1878,7 @@ proptest! {
         let borrower = Address::generate(&env);
         let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &(amount * 2));
         let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &amount, &None);
+        let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &amount);
         client.repay_loan(&borrower, &loan_id, &amount);
         let hf = client.health_factor(&loan_id);
         assert_eq!(hf, i128::MAX);
@@ -1823,6 +1896,7 @@ proptest! {
         let val = amount * 2;
         let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &val);
         let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &amount, &None);
+        let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &amount);
         let hf = client.health_factor(&loan_id);
         if hf >= 10_000 {
             let res = client.try_liquidate(&liquidator, &loan_id, &1i128);
@@ -1840,6 +1914,7 @@ proptest! {
         if amount <= 0 { return Ok(()); }
         let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &val);
         let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &amount, &None);
+        let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &amount);
         let loan = client.get_loan(&loan_id);
         assert_eq!(loan.status, LoanStatus::Active);
         assert_eq!(loan.borrower, borrower);
@@ -1870,6 +1945,7 @@ fn test_get_loan_count_one() {
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
     client.request_loan(&borrower, &vec![&env, col_id], &500_000, &None);
+    client.request_loan(&borrower, &vec![&env, col_id], &500_000);
 
     assert_eq!(client.get_loan_count(&borrower), 1);
 }
@@ -1893,6 +1969,16 @@ fn test_get_loan_count_multiple_and_statuses() {
 
     let col_other = client.register_livestock(&other_borrower, &symbol_short!("cattle"), &1, &1_000_000);
     client.request_loan(&other_borrower, &vec![&env, col_other], &100_000, &None);
+    let loan1 = client.request_loan(&borrower, &vec![&env, col1], &400_000);
+
+    let col2 = client.register_livestock(&borrower, &symbol_short!("sheep"), &5, &1_000_000);
+    let _loan2 = client.request_loan(&borrower, &vec![&env, col2], &300_000);
+
+    let col3 = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &1_000_000);
+    let _loan3 = client.request_loan(&borrower, &vec![&env, col3], &200_000);
+
+    let col_other = client.register_livestock(&other_borrower, &symbol_short!("cattle"), &1, &1_000_000);
+    client.request_loan(&other_borrower, &vec![&env, col_other], &100_000);
 
     assert_eq!(client.get_loan_count(&borrower), 3);
     assert_eq!(client.get_loan_count(&other_borrower), 1);
@@ -1912,6 +1998,7 @@ fn test_health_factor_fresh_price() {
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
 
     env.ledger().with_mut(|li| {
         li.timestamp += 1800;
@@ -1930,6 +2017,7 @@ fn test_health_factor_threshold_boundary() {
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
 
     env.ledger().with_mut(|li| {
         li.timestamp += 3600;
@@ -1948,6 +2036,7 @@ fn test_health_factor_stale_price() {
 
     let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &2, &1_000_000);
     let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000, &None);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &600_000);
 
     env.ledger().with_mut(|li| {
         li.timestamp += 3601;
@@ -1984,6 +2073,59 @@ fn test_set_staleness_threshold_unauthorized() {
 
 #[test]
 fn test_loan_without_deadline_stores_none() {
+// ── Issue #700: MIN_LOAN / MAX_LOAN tests ──────────────────────────────────
+
+#[test]
+fn test_get_loan_limits_default() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let (min_loan, max_loan) = client.get_loan_limits();
+    // default MIN_LOAN = 10_000_000 stroops (1 XLM)
+    assert_eq!(min_loan, 10_000_000);
+    // default MAX_LOAN = 1_000_000_000_000 stroops (100 000 XLM)
+    assert_eq!(max_loan, 1_000_000_000_000);
+}
+
+#[test]
+fn test_set_loan_limits_ok() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    client.set_loan_limits(&admin, &5_000_000, &500_000_000_000);
+    let (min_loan, max_loan) = client.get_loan_limits();
+    assert_eq!(min_loan, 5_000_000);
+    assert_eq!(max_loan, 500_000_000_000);
+}
+
+#[test]
+#[should_panic(expected = "#3")]
+fn test_set_loan_limits_non_admin_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    let attacker = Address::generate(&env);
+
+    client.set_loan_limits(&attacker, &5_000_000, &500_000_000_000);
+}
+
+#[test]
+#[should_panic(expected = "#8")]
+fn test_set_loan_limits_inverted_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // max <= min should fail
+    client.set_loan_limits(&admin, &100_000_000, &50_000_000);
+}
+
+/// request_loan below MIN_LOAN must return InvalidAmount (#8)
+#[test]
+#[should_panic(expected = "#8")]
+fn test_request_loan_below_min_fails() {
     let (env, cid, admin, oracle, token, treasury) = setup();
     init(&env, &cid, &admin, &oracle, &token, &treasury);
     let client = StellarKraalClient::new(&env, &cid);
@@ -1996,6 +2138,18 @@ fn test_loan_without_deadline_stores_none() {
 
 #[test]
 fn test_loan_with_deadline_stores_due_ledger() {
+
+    // register collateral worth 100 000 000 stroops; LTV 60% allows up to 60 000 000
+    let _col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
+
+    // Request 1 stroop — below MIN_LOAN of 10_000_000
+    client.request_loan(&borrower, &vec![&env, col_id], &1);
+}
+
+/// request_loan at MIN_LOAN must succeed
+#[test]
+fn test_request_loan_at_min_succeeds() {
     let (env, cid, admin, oracle, token, treasury) = setup();
     init(&env, &cid, &admin, &oracle, &token, &treasury);
     let client = StellarKraalClient::new(&env, &cid);
@@ -2057,4 +2211,80 @@ fn test_get_liquidation_threshold_after_update() {
     let client = StellarKraalClient::new(&env, &cid);
     client.set_liquidation_threshold(&admin, &9000u32);
     assert_eq!(client.get_liquidation_threshold(), 9000u32);
+
+    // collateral worth 100_000_000 → LTV 60% → max_loan = 60_000_000 > MIN_LOAN
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
+    // borrow exactly MIN_LOAN = 10_000_000
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &10_000_000);
+    assert!(loan_id > 0);
+}
+
+/// request_loan at MAX_LOAN must succeed when collateral is sufficient
+#[test]
+fn test_request_loan_at_max_succeeds() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // lower MAX_LOAN to a testable value
+    client.set_loan_limits(&admin, &10_000_000, &50_000_000);
+
+    let borrower = Address::generate(&env);
+    // collateral worth 100_000_000 → LTV 60% → max = 60_000_000 >= MAX_LOAN 50_000_000
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
+    let loan_id = client.request_loan(&borrower, &vec![&env, col_id], &50_000_000);
+    assert!(loan_id > 0);
+}
+
+/// request_loan above MAX_LOAN must return InvalidAmount (#8)
+#[test]
+#[should_panic(expected = "#8")]
+fn test_request_loan_above_max_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // lower MAX_LOAN to 20_000_000 for the test
+    client.set_loan_limits(&admin, &10_000_000, &20_000_000);
+
+    let borrower = Address::generate(&env);
+    // enough collateral to pass LTV check
+    let col_id = client.register_livestock(&borrower, &symbol_short!("cattle"), &1, &100_000_000);
+    // request 21_000_000 — above MAX_LOAN
+    client.request_loan(&borrower, &vec![&env, col_id], &21_000_000);
+}
+
+// ── Issue #699: migrate_storage tests ─────────────────────────────────────
+
+#[test]
+fn test_migrate_storage_returns_version() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    let version = client.migrate_storage(&admin);
+    assert_eq!(version, 1u32, "Migration version should be 1");
+}
+
+#[test]
+fn test_migrate_storage_idempotent() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+
+    // Calling migrate_storage multiple times should always return the same version
+    let v1 = client.migrate_storage(&admin);
+    let v2 = client.migrate_storage(&admin);
+    assert_eq!(v1, v2, "migrate_storage must be idempotent");
+}
+
+#[test]
+#[should_panic(expected = "#3")]
+fn test_migrate_storage_non_admin_fails() {
+    let (env, cid, admin, oracle, token, treasury) = setup();
+    init(&env, &cid, &admin, &oracle, &token, &treasury);
+    let client = StellarKraalClient::new(&env, &cid);
+    let attacker = Address::generate(&env);
+
+    client.migrate_storage(&attacker);
 }

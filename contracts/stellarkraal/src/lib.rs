@@ -53,6 +53,10 @@ const TWAP_WINDOW: Symbol = symbol_short!("TWAP_WIN");
 const MIN_QUORUM: Symbol = symbol_short!("MINQRM"); // minimum oracle response quorum
 const WL_COUNT: Symbol = symbol_short!("WLCOUNT");  // number of whitelisted liquidators
 
+// ── Issue #700 storage keys ──────────────────────────────────────────────────
+const MIN_LOAN: Symbol = symbol_short!("MINLOAN"); // minimum loan amount in stroops
+const MAX_LOAN: Symbol = symbol_short!("MAXLOAN"); // maximum loan amount in stroops
+
 // ── Issue #669 storage keys ──────────────────────────────────────────────────
 const PNDG_WASM: Symbol = symbol_short!("PNDGWASM");
 const UPG_TIME: Symbol = symbol_short!("UPGTIME");
@@ -68,6 +72,12 @@ pub const UPGRADE_TIMELOCK_SECS: u64 = 86_400;
 /// Maximum accepted oracle price (exclusive). Any price ≥ `MAX_PRICE` is
 /// rejected as invalid.
 pub const MAX_PRICE: i128 = 1_000_000_000_000_000_000i128; // 10^18
+
+/// Default minimum loan amount: 10,000,000 stroops (1 XLM).
+pub const DEFAULT_MIN_LOAN: i128 = 10_000_000;
+
+/// Default maximum loan amount: 1,000,000,000,000 stroops (100,000 XLM).
+pub const DEFAULT_MAX_LOAN: i128 = 1_000_000_000_000;
 
 // ── TTL management ───────────────────────────────────────────────────────────
 
@@ -354,6 +364,9 @@ impl StellarKraal {
         env.storage().instance().set(&PRICE_MAX, &0i128);
         env.storage().instance().set(&STALE_THR, &3600u64);
         env.storage().instance().set(&DEV_BPS, &2000u32);
+        // Issue #700: loan amount limits (configurable, defaulting to 1 XLM / 100 000 XLM)
+        env.storage().instance().set(&MIN_LOAN, &DEFAULT_MIN_LOAN);
+        env.storage().instance().set(&MAX_LOAN, &DEFAULT_MAX_LOAN);
         Ok(())
     }
 
@@ -566,6 +579,15 @@ impl StellarKraal {
         Self::assert_initialized(&env)?;
         Self::assert_not_paused(&env)?;
         if amount <= 0 {
+            return Err(Error::InvalidAmount);
+        }
+        // Issue #700: enforce configurable min/max loan bounds
+        let min_loan_limit: i128 = env.storage().instance().get(&MIN_LOAN).unwrap_or(DEFAULT_MIN_LOAN);
+        let max_loan_limit: i128 = env.storage().instance().get(&MAX_LOAN).unwrap_or(DEFAULT_MAX_LOAN);
+        if amount < min_loan_limit {
+            return Err(Error::InvalidAmount);
+        }
+        if amount > max_loan_limit {
             return Err(Error::InvalidAmount);
         }
         if collateral_ids.is_empty() {
@@ -1173,6 +1195,45 @@ impl StellarKraal {
         Ok(())
     }
 
+    // ── set_loan_limits ───────────────────────────────────────────────────
+    /// Update the minimum and maximum loan amounts (Issue #700).
+    ///
+    /// - `min_loan` must be ≥ 1 (stroops).
+    /// - `max_loan` must be > `min_loan`.
+    pub fn set_loan_limits(
+        env: Env,
+        admin: Address,
+        min_loan: i128,
+        max_loan: i128,
+    ) -> Result<(), Error> {
+        Self::assert_initialized(&env)?;
+        Self::assert_admin(&env, &admin)?;
+        admin.require_auth();
+
+        if min_loan <= 0 || max_loan <= 0 || max_loan <= min_loan {
+            return Err(Error::InvalidAmount);
+        }
+
+        env.storage().instance().set(&MIN_LOAN, &min_loan);
+        env.storage().instance().set(&MAX_LOAN, &max_loan);
+
+        env.events().publish(
+            (symbol_short!("Admin"), symbol_short!("LoanLim")),
+            (min_loan, max_loan),
+        );
+
+        Ok(())
+    }
+
+    // ── get_loan_limits ───────────────────────────────────────────────────
+    /// Return the current `(min_loan, max_loan)` configuration.
+    pub fn get_loan_limits(env: Env) -> Result<(i128, i128), Error> {
+        Self::assert_initialized(&env)?;
+        let min_loan: i128 = env.storage().instance().get(&MIN_LOAN).unwrap_or(DEFAULT_MIN_LOAN);
+        let max_loan: i128 = env.storage().instance().get(&MAX_LOAN).unwrap_or(DEFAULT_MAX_LOAN);
+        Ok((min_loan, max_loan))
+    }
+
     // ── set_ltv ──────────────────────────────────────────────────────────
     /// Update the loan-to-value ratio (1000–9000 bps).
     pub fn set_ltv(env: Env, admin: Address, ltv_bps: u32) -> Result<(), Error> {
@@ -1468,6 +1529,40 @@ impl StellarKraal {
             env.ledger().timestamp(),
         );
         Ok(())
+    }
+
+    // ── migrate_storage ───────────────────────────────────────────────────
+    /// Standard hook called after a contract upgrade to migrate on-chain storage
+    /// to the new layout (Issue #699).
+    ///
+    /// This is the canonical upgrade migration hook. Every new contract version
+    /// should implement any required data-layout migrations here.  The current
+    /// version is a no-op (idempotent stub) because no breaking storage changes
+    /// have been made.
+    ///
+    /// ## Versioning
+    /// Returns the migration version number.  The first version is `1`.
+    /// Callers can use this value to verify that migration ran and to gate
+    /// version-specific logic.
+    ///
+    /// ## Access
+    /// Admin-only.
+    pub fn migrate_storage(env: Env, admin: Address) -> Result<u32, Error> {
+        Self::assert_initialized(&env)?;
+        Self::assert_admin(&env, &admin)?;
+        admin.require_auth();
+
+        // Current migration version: 1 (no-op / stub for future use).
+        // Future versions add actual field migrations here before bumping the
+        // constant to the next version number.
+        const MIGRATION_VERSION: u32 = 1;
+
+        env.events().publish(
+            (symbol_short!("Admin"), symbol_short!("MigDone")),
+            MIGRATION_VERSION,
+        );
+
+        Ok(MIGRATION_VERSION)
     }
 
     // ── internal helpers ──────────────────────────────────────────────────

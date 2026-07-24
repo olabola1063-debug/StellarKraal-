@@ -125,6 +125,23 @@ The contract manages livestock-backed loans with the following responsibilities:
   - `loan_duration_ledgers` — optional duration in seconds from now. When provided the stored `due_ledger` is set to `now + loan_duration_ledgers`. Pass `None` for open-ended loans with no repayment deadline.
 - Returns: `Result<u64, Error>` — newly assigned loan ID.
 - State changes: validates collateral ownership, locks collaterals, stores `LoanRecord` (with optional `due_ledger`), transfers origination fee to treasury, disburses net amount to borrower, emits loan requested event.
+  - `amount` — requested gross loan amount in token base units (stroops). Must satisfy `MIN_LOAN ≤ amount ≤ MAX_LOAN`.
+- Returns: `Result<u64, Error>` — newly assigned loan ID.
+- State changes: validates collateral ownership, locks collaterals, stores `LoanRecord`, transfers origination fee to treasury, disburses net amount to borrower, emits loan requested event.
+- Errors:
+  - `InvalidAmount` (#8) if `amount ≤ 0`, `amount < MIN_LOAN`, or `amount > MAX_LOAN`.
+  - `InsufficientCollateral` (#4) if `amount > total_collateral_value × LTV / 10000`.
+  - `CollateralNotFound` (#6) if `collateral_ids` is empty or contains an unknown ID.
+  - `Unauthorized` (#3) if any collateral is owned by a different address.
+
+#### Loan Amount Constants (Issue #700)
+
+| Constant | Default value | XLM equivalent | Storage key |
+|---|---|---|---|
+| `DEFAULT_MIN_LOAN` | `10_000_000` stroops | 1 XLM | `MIN_LOAN` (instance) |
+| `DEFAULT_MAX_LOAN` | `1_000_000_000_000` stroops | 100,000 XLM | `MAX_LOAN` (instance) |
+
+Both limits are configurable at runtime by the admin via `set_loan_limits(admin, min_loan, max_loan)`.
 
 ### `repay_loan(env, borrower, loan_id, amount)`
 - Description: Repay part or all of an active loan.
