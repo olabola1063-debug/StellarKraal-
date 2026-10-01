@@ -56,6 +56,11 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   backend:
     build:
@@ -123,6 +128,11 @@ services:
     volumes:
       - loki-data:/loki
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   promtail:
     # Pinned to immutable digest — update via Dependabot (docker ecosystem)
@@ -135,6 +145,11 @@ services:
     depends_on:
       - loki
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   grafana:
     # Pinned to immutable digest — update via Dependabot (docker ecosystem)
@@ -152,6 +167,11 @@ services:
     depends_on:
       - loki
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   cargo-cache:

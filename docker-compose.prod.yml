@@ -29,7 +29,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
-        max-file: "5"
+        max-file: "3"
 
   frontend:
     build:
@@ -63,7 +63,7 @@ services:
       driver: json-file
       options:
         max-size: "10m"
-        max-file: "5"
+        max-file: "3"
 
   loki:
     image: grafana/loki:2.9.4
@@ -81,6 +81,11 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   promtail:
     image: grafana/promtail:2.9.4
@@ -100,6 +105,11 @@ services:
         reservations:
           cpus: '0.05'
           memory: 32M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   grafana:
     image: grafana/grafana:10.4.2
@@ -122,6 +132,11 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   loki-data:

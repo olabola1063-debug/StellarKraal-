@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "npm run migrate:dev && ts-node-dev --respawn src/index.ts",
-    "build": "tsc",
+    "dev": "node api.js && npm run migrate:dev && ts-node-dev --respawn src/index.ts",
+    "build": "node api.js && tsc",
     "lint": "eslint src --max-warnings 0",
-    "start": "node dist/index.js",
+    "start": "node api.js && node dist/index.js",
     "test": "jest --forceExit",
     "test:coverage": "jest --coverage --forceExit --testPathIgnorePatterns=integration.test.ts",
     "test:smoke": "jest --forceExit --testPathPatterns smoke.test.ts",
