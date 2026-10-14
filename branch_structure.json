@@ -1,0 +1,30 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "dependabot/npm_and_yarn/backend/backend-dependencies-0fe1e25798",
+    "drips/1226-1227-1228-1354",
+    "feat/issue-700-loan-limits",
+    "main",
+    "origin",
+    "release-please--branches--main--components--stellarkraal",
+    "release-please--branches--main--components--stellarkraal--release-notes"
+  ],
+  "parent": {
+    "dependabot/npm_and_yarn/backend/backend-dependencies-0fe1e25798": "main",
+    "drips/1226-1227-1228-1354": "main",
+    "feat/issue-700-loan-limits": "main",
+    "main": null,
+    "origin": "main",
+    "release-please--branches--main--components--stellarkraal": "main",
+    "release-please--branches--main--components--stellarkraal--release-notes": "release-please--branches--main--components--stellarkraal"
+  },
+  "order": [
+    "main",
+    "dependabot/npm_and_yarn/backend/backend-dependencies-0fe1e25798",
+    "drips/1226-1227-1228-1354",
+    "feat/issue-700-loan-limits",
+    "origin",
+    "release-please--branches--main--components--stellarkraal",
+    "release-please--branches--main--components--stellarkraal--release-notes"
+  ]
+}
