@@ -36,6 +36,26 @@ quick navigation during development and code review.
 | DELETE | `/collateral/{id}` | Soft-delete a collateral record |
 | PATCH | `/collateral/{id}/restore` | Restore soft-deleted collateral |
 
+### `PATCH /collateral/{id}` — Partial update
+
+Partially updates a collateral record. Only the owner of the collateral or an
+admin may patch it; other callers receive `403 Forbidden`.
+
+**Patchable fields** (all optional, at least one required):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `weight` | number | Changing this queues a new appraisal |
+| `healthStatus` | string | Changing this queues a new appraisal |
+| `notes` | string | Free-form health notes; does not affect appraisal |
+
+**Behaviour**
+
+- Returns `400 Bad Request` when the request body contains no patchable fields.
+- When `weight` or `healthStatus` changes, a new appraisal is queued for the
+  collateral record.
+- Returns the updated collateral record on success.
+
 ## Loans (`loan`)
 
 | Method | Path | Summary |
