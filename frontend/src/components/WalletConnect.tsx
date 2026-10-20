@@ -23,6 +23,10 @@ interface Props {
  *
  * Disconnecting — #529: clicking "Disconnect" opens a ConfirmDialog instead of
  * immediately ending the session, so an accidental click can't log the user out.
+ *
+ * Freighter flow — #1356: detection shows an install prompt when the extension
+ * is missing, connect requests permission and stores the public key in context,
+ * and disconnect clears wallet state and redirects unauthenticated users.
  */
 export default function WalletConnect({ onConnect }: Props) {
   const { address, freighterInstalled, connecting, error, connect, disconnect } =
@@ -36,6 +40,10 @@ export default function WalletConnect({ onConnect }: Props) {
   function handleConfirmDisconnect() {
     disconnect();
     setConfirmDisconnectOpen(false);
+    // #1356: redirect unauthenticated users after wallet state is cleared.
+    if (typeof window !== "undefined") {
+      window.location.assign("/");
+    }
   }
 
   // While Freighter detection is still in progress, render nothing.
@@ -44,9 +52,17 @@ export default function WalletConnect({ onConnect }: Props) {
   // ── Freighter not installed ──────────────────────────────────────────────
   if (!freighterInstalled) {
     return (
-      <div className="mb-6 rounded-xl border border-[color:var(--token-border-strong)] bg-[color:var(--token-surface)] px-4 py-3 text-sm">
+      <div
+        className="mb-6 rounded-xl border border-[color:var(--token-border-strong)] bg-[color:var(--token-surface)] px-4 py-3 text-sm"
+        role="alert"
+        aria-live="polite"
+      >
         <p className="font-semibold text-[color:var(--token-text)] mb-1">
           Freighter wallet not detected
+        </p>
+        <p className="text-[color:var(--token-text-muted)] mb-2">
+          Install the Freighter browser extension to connect your wallet and
+          interact on-chain.
         </p>
         <a
           href="https://freighter.app"

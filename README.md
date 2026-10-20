@@ -392,3 +392,8 @@ website https://kraal-bloom-connect.lovable.app/
 
 MIT © StellarKraal
 .
+
+## Handsoff notes
+
+<!-- handsoff-issue-1372 -->
+- #1372: Publish OpenAPI spec to docs site and add Swagger UI
